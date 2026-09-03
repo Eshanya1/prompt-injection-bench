@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prompt-injection-bench — live demo</title>
+<style>
+:root {
+  --bg: #F4F5F7;
+  --panel: #FFFFFF;
+  --panel-alt: #ECEEF2;
+  --text: #191C22;
+  --text-dim: #565D6B;
+  --text-faint: #8A90A0;
+  --border: #DBDEE5;
+  --border-strong: #C1C6D1;
+  --accent: #3C4CC0;
+  --accent-bg: rgba(60, 76, 192, 0.09);
+  --good: #1E7A4C;
+  --good-bg: rgba(30, 122, 76, 0.10);
+  --bad: #B0273D;
+  --bad-bg: rgba(176, 39, 61, 0.09);
+  --warn: #A5690C;
+  --warn-bg: rgba(165, 105, 12, 0.12);
+  --mono: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --shadow: 0 1px 2px rgba(20, 22, 30, 0.06), 0 8px 24px rgba(20, 22, 30, 0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121319;
+    --panel: #191B22;
+    --panel-alt: #21232C;
+    --text: #E8E9EE;
+    --text-dim: #9CA1B0;
+    --text-faint: #676D7D;
+    --border: #2C2F3A;
+    --border-strong: #3D4150;
+    --accent: #8B97F0;
+    --accent-bg: rgba(139, 151, 240, 0.14);
+    --good: #5FC98A;
+    --good-bg: rgba(95, 201, 138, 0.12);
+    --bad: #F0707F;
+    --bad-bg: rgba(240, 112, 127, 0.13);
+    --warn: #E0A83C;
+    --warn-bg: rgba(224, 168, 60, 0.13);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121319;
+  --panel: #191B22;
+  --panel-alt: #21232C;
+  --text: #E8E9EE;
+  --text-dim: #9CA1B0;
+  --text-faint: #676D7D;
+  --border: #2C2F3A;
+  --border-strong: #3D4150;
+  --accent: #8B97F0;
+  --accent-bg: rgba(139, 151, 240, 0.14);
+  --good: #5FC98A;
+  --good-bg: rgba(95, 201, 138, 0.12);
+  --bad: #F0707F;
+  --bad-bg: rgba(240, 112, 127, 0.13);
+  --warn: #E0A83C;
+  --warn-bg: rgba(224, 168, 60, 0.13);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 32px 20px 80px; }
+header h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+header p.tagline { color: var(--text-dim); margin: 0 0 20px; max-width: 68ch; }
+header a { color: var(--accent); }
+table.summary { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin: 18px 0 28px; }
+table.summary th, table.summary td {
+  padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+table.summary th:first-child, table.summary td:first-child { text-align: left; font-family: var(--mono); }
+table.summary thead th { color: var(--text-faint); font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.03em; }
+table.summary tbody tr:hover { background: var(--panel-alt); }
+table.summary td.hi { color: var(--good); font-weight: 600; }
+.layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+.panel {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow); overflow: hidden;
+}
+.doclist { max-height: 78vh; overflow-y: auto; }
+.doclist .group-label {
+  padding: 8px 12px 4px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-faint); font-weight: 600; background: var(--panel-alt);
+  position: sticky; top: 0;
+}
+.doclist button {
+  display: block; width: 100%; text-align: left; padding: 8px 12px; border: 0; background: none;
+  cursor: pointer; color: var(--text); font-size: 0.82rem; border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+}
+.doclist button:hover { background: var(--accent-bg); }
+.doclist button.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+.detail { padding: 18px 20px 24px; }
+.detail h2 { margin: 0 0 2px; font-size: 1.05rem; font-family: var(--mono); }
+.detail .meta { color: var(--text-faint); font-size: 0.8rem; margin-bottom: 14px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.tabs button {
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border-strong);
+  background: var(--panel-alt); color: var(--text-dim); font-size: 0.76rem; cursor: pointer;
+  font-family: var(--mono);
+}
+.tabs button.active { background: var(--accent); color: white; border-color: var(--accent); }
+.badge {
+  display: inline-block; padding: 3px 9px; border-radius: 5px; font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.02em; margin-bottom: 12px;
+}
+.badge.good { background: var(--good-bg); color: var(--good); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.block {
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+  margin-bottom: 12px; font-size: 0.82rem;
+}
+.block h3 { margin: 0 0 6px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); }
+.block pre { white-space: pre-wrap; word-break: break-word; margin: 0; font-family: var(--mono); font-size: 0.8rem; }
+.flags { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--text-dim); margin-bottom: 12px; }
+.flags b { color: var(--text); }
+footer { margin-top: 28px; color: var(--text-faint); font-size: 0.78rem; max-width: 68ch; }
+::-webkit-scrollbar { width: 9px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>prompt-injection-bench</h1>
+    <p class="tagline">
+      33 hand-authored indirect prompt-injection attacks (10 techniques) and 20 benign/benign-adversarial
+      documents, run against a real tool-using claude-sonnet-5 agent under 6 defenses. Every result below
+      is a recorded replay of a real API run — no live calls happen on this page.
+      <a href="https://github.com/Eshanya1/prompt-injection-bench" target="_blank" rel="noopener">Source →</a>
+    </p>
+  </header>
+
+  <table class="summary" id="summary-table"></table>
+
+  <div class="layout">
+    <div class="panel doclist" id="doclist"></div>
+    <div class="panel detail" id="detail"></div>
+  </div>
+
+  <footer>
+    Action-level hijack = the agent actually called <code>send_email</code> with attacker-controlled
+    arguments the user never asked for — the metric this project treats as authoritative. Text-level =
+    the doc's canary string appears anywhere in the agent's reply, a much weaker signal that also fires
+    when the model merely quotes or discusses the attempt while explaining it refused. See the repo's
+    README and COMPARISON.md for the full methodology and honest caveats.
+  </footer>
+</div>
+
+<script>
+const DATA = __INJECTION_BENCH_DATA__;
+
+const DEFENSES = ["no_defense", "naive_regex", "structural_spotlight", "llm_classifier", "combined", "behavioral_allowlist"];
+const DEFENSE_LABELS = {
+  no_defense: "No defense",
+  naive_regex: "Naive regex",
+  structural_spotlight: "Structural spotlight",
+  llm_classifier: "LLM classifier",
+  combined: "Combined",
+  behavioral_allowlist: "Behavioral allowlist",
+};
+const TECHNIQUE_LABELS = {
+  direct_override: "Direct override",
+  fake_role_marker: "Fake role marker",
+  fake_completion: "Fake completion",
+  payload_splitting: "Payload splitting",
+  encoding_obfuscation: "Encoding / obfuscation",
+  multi_turn_poisoning: "Multi-turn poisoning",
+  authority_urgency: "Authority / urgency",
+  nested_quoted: "Nested / quoted",
+  disguised_as_debug: "Disguised as debug",
+  hidden_metadata: "Hidden metadata",
+  none: "—",
+};
+
+function fmtPct(x) { return (x * 100).toFixed(1) + "%"; }
+
+function renderSummary() {
+  const el = document.getElementById("summary-table");
+  let html = "<thead><tr><th>Defense</th><th>ASR (action)</th><th>ASR (text)</th><th>FPR (adversarial)</th><th>FPR (plain)</th><th>Benign task success</th></tr></thead><tbody>";
+  for (const name of DEFENSES) {
+    const s = DATA.summary[name];
+    if (!s) continue;
+    html += `<tr><td>${DEFENSE_LABELS[name]}</td><td class="hi">${fmtPct(s.asr_action)}</td><td>${fmtPct(s.asr_text)}</td><td>${fmtPct(s.fpr_adversarial)}</td><td>${fmtPct(s.fpr_plain)}</td><td>${fmtPct(s.benign_task_success_rate)}</td></tr>`;
+  }
+  html += "</tbody>";
+  el.innerHTML = html;
+}
+
+function groupedDocs() {
+  const groups = {};
+  for (const [id, d] of Object.entries(DATA.docs)) {
+    const key = d.label === "malicious" ? TECHNIQUE_LABELS[d.technique] : (d.label === "benign_adversarial" ? "Benign — adversarial-looking" : "Benign — plain");
+    (groups[key] ||= []).push(id);
+  }
+  return groups;
+}
+
+let currentDoc = null;
+let currentDefense = "no_defense";
+
+function renderList() {
+  const el = document.getElementById("doclist");
+  const groups = groupedDocs();
+  let html = "";
+  for (const [label, ids] of Object.entries(groups)) {
+    html += `<div class="group-label">${label}</div>`;
+    for (const id of ids.sort()) {
+      html += `<button data-doc="${id}" class="${id === currentDoc ? "active" : ""}">${id}</button>`;
+    }
+  }
+  el.innerHTML = html;
+  el.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => { currentDoc = btn.dataset.doc; renderList(); renderDetail(); });
+  });
+}
+
+function badgeFor(doc, run) {
+  if (doc.label === "malicious") {
+    if (run.action_level_hijacked) return ["HIJACKED", "bad"];
+    if (run.content_flagged) return ["BLOCKED", "good"];
+    return ["SAFE (not blocked, not hijacked)", "good"];
+  }
+  if (run.content_flagged) return ["FALSE POSITIVE", "warn"];
+  if (run.benign_task_success) return ["OK — task succeeded", "good"];
+  return ["TASK FAILED (not blocked, but no real content used)", "warn"];
+}
+
+function renderDetail() {
+  const el = document.getElementById("detail");
+  if (!currentDoc) {
+    el.innerHTML = `<p style="color:var(--text-faint)">Pick a document on the left.</p>`;
+    return;
+  }
+  const doc = DATA.docs[currentDoc];
+  const run = doc.by_defense[currentDefense];
+  const [label, cls] = badgeFor(doc, run);
+
+  let html = `<h2>${currentDoc}</h2>`;
+  html += `<div class="meta">${doc.label} &middot; ${TECHNIQUE_LABELS[doc.technique] || doc.technique}</div>`;
+  html += `<div class="tabs">`;
+  for (const name of DEFENSES) {
+    html += `<button data-defense="${name}" class="${name === currentDefense ? "active" : ""}">${DEFENSE_LABELS[name]}</button>`;
+  }
+  html += `</div>`;
+  html += `<div class="badge ${cls}">${label}</div>`;
+  html += `<div class="flags"><span><b>content flagged:</b> ${run.content_flagged}</span><span><b>text-level canary:</b> ${run.text_level_hijacked}</span><span><b>action-level hijack:</b> ${run.action_level_hijacked}</span></div>`;
+  html += `<div class="block"><h3>What the agent saw (after this defense)</h3><pre>${escapeHtml(run.fetched_text_seen_by_model || "(not recorded)")}</pre></div>`;
+  html += `<div class="block"><h3>Agent's final response</h3><pre>${escapeHtml(run.final_text)}</pre></div>`;
+  el.innerHTML = html;
+  el.querySelectorAll(".tabs button").forEach(btn => {
+    btn.addEventListener("click", () => { currentDefense = btn.dataset.defense; renderDetail(); });
+  });
+}
+
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+renderSummary();
+const firstGroup = Object.values(groupedDocs())[0];
+currentDoc = firstGroup ? firstGroup[0] : null;
+renderList();
+renderDetail();
+</script>
+</body>
+</html>
